@@ -301,6 +301,15 @@ export default function MapGenerator({
           prompt: `Illustration of: ${lastSavedConcept.name}`, sourceAssetId: lastSavedConcept.id, sourceAssetType: 'mapConcept', projectId: activeProjectId || undefined,
       };
       setSavedAssets(prev => [...prev, newArtAsset]);
+      if (activeProjectId) {
+        setProjects(prevProjects => prevProjects.map(p => {
+            if (p.id === activeProjectId) {
+                const currentArt = p.linkedAssetIds.conceptArt || [];
+                return { ...p, linkedAssetIds: { ...p.linkedAssetIds, conceptArt: [...currentArt, newArtAsset.id] }};
+            }
+            return p;
+        }));
+    }
   };
 
   const isConceptSaved = () => {

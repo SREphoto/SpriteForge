@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -254,6 +255,7 @@ export default function ItemGenerator({
   const [itemStyleKeywords, setItemStyleKeywords] = useState<string>('');
   const [selectedPerspective, setSelectedPerspective] = useState<string>('isometric'); 
   const [selectedVariationType, setSelectedVariationType] = useState<string>(itemVariationTypeOptions[0].value);
+  const [itemDurability, setItemDurability] = useState<string>('');
 
   const [generatedItemDescription, setGeneratedItemDescription] = useState<ItemDescriptionJson | null>(null);
   const [generatedItemImageUrls, setGeneratedItemImageUrls] = useState<ItemImageUrls>({ default: null, hover: null, active: null });
@@ -357,6 +359,8 @@ export default function ItemGenerator({
       return;
     }
     if (!generatedItemDescription || !imageUrl) return;
+
+    const numDurability = parseInt(itemDurability, 10);
     
     const newItemAsset: ItemAsset = {
       id: `item-${generatedItemDescription.itemType || 'unknown'}-${variantKey}-${Date.now()}`,
@@ -371,6 +375,7 @@ export default function ItemGenerator({
       itemType: generatedItemDescription.itemType || selectedItemType,
       gamePerspective: selectedPerspective,
       projectId: activeProjectId || undefined,
+      durabilityOrQuantity: !isNaN(numDurability) && numDurability > 0 ? numDurability : undefined,
     };
     setSavedAssets(prev => [...prev, newItemAsset]);
 
@@ -410,6 +415,7 @@ export default function ItemGenerator({
     setItemStyleKeywords('');
     setSelectedPerspective('isometric');
     setSelectedVariationType(itemVariationTypeOptions[0].value);
+    setItemDurability('');
     setGeneratedItemDescription(null);
     setGeneratedItemImageUrls({ default: null, hover: null, active: null });
     setDescriptionLoading(false);
@@ -432,10 +438,17 @@ export default function ItemGenerator({
   };
   const CategoryIcon = categoryIconMap[selectedItemCategory] || Settings2;
 
+  const showDurabilityField = ['weapon', 'armor', 'consumable', 'misc_loot'].includes(selectedItemCategory);
+  let durabilityFieldLabel = '';
+  if (selectedItemCategory === 'weapon' || selectedItemCategory === 'armor') {
+      durabilityFieldLabel = 'Durability (Optional)';
+  } else if (selectedItemCategory === 'consumable' || selectedItemCategory === 'misc_loot') {
+      durabilityFieldLabel = 'Quantity (Optional)';
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] app-container-waves">
-      <Header appName={appName} isLoggedIn={isLoggedIn} currentUserEmail={currentUserEmail} onLoginClick={() => setLoginModalOpen(true)} onSignupClick={() => setSignupModalOpen(true)} onLogoutClick={handleLogout} onLegalClick={() => setLegalModalOpen(true)} onTosClick={() => setTosModalOpen(true)} navigateTo={navigateTo} />
+      <Header appName={appName} isLoggedIn={isLoggedIn} currentUserEmail={currentUserEmail} onLoginClick={() => setLoginModalOpen(true)} onSignupClick={() => setSignupModalOpen(false)} onLogoutClick={handleLogout} onLegalClick={() => setLegalModalOpen(true)} onTosClick={() => setTosModalOpen(true)} navigateTo={navigateTo} />
 
       <main className="flex-grow w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="space-y-8">
@@ -498,6 +511,21 @@ export default function ItemGenerator({
                   <ChevronDown size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-placeholder)] pointer-events-none" />
                 </div>
               </div>
+              {showDurabilityField && (
+                    <div className="md:col-span-2">
+                        <label htmlFor="item-durability" className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">{durabilityFieldLabel}</label>
+                        <input
+                            type="number"
+                            id="item-durability"
+                            value={itemDurability}
+                            onChange={e => setItemDurability(e.target.value)}
+                            placeholder="e.g., 100 or 10"
+                            className="form-input"
+                            disabled={mainContentDisabled}
+                            min="1"
+                        />
+                    </div>
+                )}
             </div>
           </section>
 

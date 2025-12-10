@@ -1,5 +1,4 @@
 
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -177,6 +176,9 @@ export default function Assets({ navigateTo, appName, savedAssets, setSavedAsset
                         <p><Box size={13} className="inline mr-1.5 text-[var(--accent-gold)] opacity-70" /> <strong>Category:</strong> {itemCategoryLabels[asset.itemCategory] || asset.itemCategory}</p>
                         <p><Eye size={13} className="inline mr-1.5 text-[var(--accent-gold)] opacity-70" /> <strong>Perspective:</strong> {gamePerspectiveLabel(asset.gamePerspective)}</p>
                          <p><Tag size={13} className="inline mr-1.5 text-[var(--accent-gold)] opacity-70" /> <strong>Variant:</strong> <span className="capitalize">{asset.variantKey}</span></p>
+                         {asset.durabilityOrQuantity && (
+                            <p><Info size={13} className="inline mr-1.5 text-[var(--accent-gold)] opacity-70" /> <strong>{asset.itemCategory === 'weapon' || asset.itemCategory === 'armor' ? 'Durability:' : 'Quantity:'}</strong> {asset.durabilityOrQuantity}</p>
+                         )}
                     </>}
                     {asset.assetType === 'conceptArt' && <>
                          <p className="capitalize"><Tag size={13} className="inline mr-1.5 text-[var(--accent-gold)] opacity-70" /> <strong>Source:</strong> {asset.sourceAssetType.replace('Concept', '').replace('Data','')}</p>
@@ -249,7 +251,7 @@ export default function Assets({ navigateTo, appName, savedAssets, setSavedAsset
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] app-container-waves">
-      <Header appName={appName} isLoggedIn={isLoggedIn} currentUserEmail={currentUserEmail} onLoginClick={() => setLoginModalOpen(true)} onSignupClick={() => setSignupModalOpen(true)} onLogoutClick={handleLogout} onLegalClick={() => setLegalModalOpen(true)} onTosClick={() => setTosModalOpen(true)} navigateTo={navigateTo} />
+      <Header appName={appName} isLoggedIn={isLoggedIn} currentUserEmail={currentUserEmail} onLoginClick={() => setLoginModalOpen(true)} onSignupClick={() => setSignupModalOpen(false)} onLogoutClick={handleLogout} onLegalClick={() => setLegalModalOpen(true)} onTosClick={() => setTosModalOpen(true)} navigateTo={navigateTo} />
 
       <main className="flex-grow w-full max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-8">

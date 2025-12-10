@@ -1,5 +1,4 @@
 
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -59,6 +58,7 @@ export interface ItemAsset extends BaseAsset {
   itemCategory: string;
   itemType: string;
   gamePerspective: string;
+  durabilityOrQuantity?: number;
 }
 
 export interface MapConceptAsset extends BaseAsset {

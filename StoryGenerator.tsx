@@ -334,6 +334,15 @@ export default function StoryGenerator({
           prompt: `Illustration of: ${lastSavedConcept.name}`, sourceAssetId: lastSavedConcept.id, sourceAssetType: 'storyConcept', projectId: activeProjectId || undefined,
       };
       setSavedAssets(prev => [...prev, newArtAsset]);
+      if (activeProjectId) {
+        setProjects(prevProjects => prevProjects.map(p => {
+            if (p.id === activeProjectId) {
+                const currentArt = p.linkedAssetIds.conceptArt || [];
+                return { ...p, linkedAssetIds: { ...p.linkedAssetIds, conceptArt: [...currentArt, newArtAsset.id] }};
+            }
+            return p;
+        }));
+    }
   };
 
   const isStorySaved = () => {
@@ -400,41 +409,4 @@ export default function StoryGenerator({
                     <button type="button" onClick={handleSaveStoryConcept} disabled={saveButtonDisabled} title={isStorageFull ? "Cannot save, storage is full" : (saveButtonDisabled && !mainContentDisabled ? "Already saved" : saveButtonText)} className={`button-tertiary !text-sm !px-4 !py-2 flex items-center ${storySavedToGlobalAssets && !isCreatingProject.isCreating && !isStorageFull ? '!text-green-500 hover:!bg-green-500/10' : ''}`}><Save size={16} className="mr-2" /> {saveButtonText}</button>
                 </div>
               </div>
-              <div className="prose-modals max-h-[70vh] overflow-y-auto bg-[var(--bg-secondary)] p-4 sm:p-5 rounded-lg border border-[var(--border-color)]"><ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownDisplayComponents}>{generatedStory}</ReactMarkdown></div>
-              <div className="mt-6 pt-6 border-t border-[var(--border-color)]">
-                 <button onClick={handleIllustrateConcept} disabled={mainContentDisabled || !lastSavedConcept} className="button-secondary w-full mb-4" title={!lastSavedConcept ? "Save the text concept first to enable illustration" : "Illustrate Concept"}><ImageIcon size={18} className="mr-2"/>Illustrate Story Concept</button>
-                 {illustrationUrl && (
-                    <div className="bg-[var(--bg-secondary)] p-3 rounded-lg">
-                        <img src={illustrationUrl} alt="Generated story illustration" className="w-full h-auto rounded-md border border-[var(--border-color)]"/>
-                        <div className="flex gap-2 mt-3">
-                            <button onClick={() => downloadFileFromUrl(illustrationUrl, `illustration_${lastSavedConcept?.name.replace(/ /g, '_')}.png`)} className="button-tertiary flex-1 !text-sm"><Download size={16} className="mr-2"/>Download Art</button>
-                            <button onClick={handleSaveIllustration} disabled={isStorageFull || illustrationSaved} className={`button-tertiary flex-1 !text-sm ${illustrationSaved ? '!text-green-500' : ''}`}><Save size={16} className="mr-2"/>{illustrationSaved ? 'Saved' : 'Save Art'}</button>
-                        </div>
-                    </div>
-                 )}
-              </div>
-            </section>
-          )}
-          
-          {!isLoading && hasGenerated && !generatedStory && !errorDetails && (<section className="text-center py-10 card-style"><XCircle size={48} className="mx-auto text-red-500 mb-3" /><h2 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">No Story Concept Generated</h2><p className="text-[var(--text-secondary)]">The AI did not produce a story concept. This might be a temporary issue. Please try again or adjust your theme.</p></section>)}
-
-           <section aria-labelledby="quick-actions-heading" className="card-style mt-8">
-             <h2 id="quick-actions-heading" className="h3-style mb-4 flex items-center"><Info size={24} className="mr-3 text-[var(--accent-gold)]" /> Quick Actions</h2>
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-               <button type="button" className="button-secondary w-full flex items-center justify-center !py-3" onClick={() => navigateTo('home')} disabled={mainContentDisabled}><Palette size={20} className="mr-2.5" /> Sprite Gen</button>
-               <button type="button" className="button-secondary w-full flex items-center justify-center !py-3" onClick={() => navigateTo('map-generator')} disabled={mainContentDisabled}><Map size={20} className="mr-2.5" /> Map Gen</button>
-               <button type="button" className="button-secondary w-full flex items-center justify-center !py-3" onClick={() => navigateTo('assets')} disabled={mainContentDisabled}><LayoutGrid size={20} className="mr-2.5" /> My Assets</button>
-               <button type="button" className="button-secondary w-full flex items-center justify-center !py-3" onClick={() => navigateTo('playground')} disabled={mainContentDisabled}><BoxSelect size={20} className="mr-2.5" /> Playground</button>
-             </div>
-           </section>
-        </div>
-      </main>
-      <footer className="w-full text-center p-6 border-t border-[var(--border-color)] mt-12"><p className="text-sm text-[var(--text-secondary)]">&copy; {new Date().getFullYear()} {appName}. AI Story Concept Generator.</p></footer>
-      <ErrorModal isOpen={!!errorDetails} onClose={() => setErrorDetails(null)} title={errorDetails?.title} message={errorDetails?.message} />
-      <LoginModal isOpen={loginModalOpen} onClose={() => setLoginModalOpen(false)} onLogin={handleLogin} appName={appName} />
-      <SignupModal isOpen={signupModalOpen} onClose={() => setSignupModalOpen(false)} onSignup={handleSignup} appName={appName} />
-      <LegalModal isOpen={legalModalOpen} onClose={() => setLegalModalOpen(false)} appName={appName} />
-      <TosModal isOpen={tosModalOpen} onClose={() => setTosModalOpen(false)} appName={appName} />
-    </div>
-  );
-}
+              <div className="prose-modals max-h-[70vh] overflow-y

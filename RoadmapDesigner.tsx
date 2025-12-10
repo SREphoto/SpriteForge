@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 import React, { useState, useEffect } from 'react';
-import { Page, Project, SavedAsset, StoryConceptAsset, PrefillState, ItemAsset, SpriteAsset, MapConceptAsset } from './index'; 
+import { Page, Project, SavedAsset, StoryConceptAsset, PrefillState, ItemAsset, SpriteAsset, MapConceptAsset, MapConceptAsset as MapAsset } from './index'; 
 import { GoogleGenAI } from '@google/genai';
 import Header from './components/Header';
 import ErrorModal from './components/ErrorModal';
@@ -25,6 +25,7 @@ interface RoadmapDesignerProps {
   navigateToWithPrefill: (page: Page, data: string, field: string) => void;
   appName: string;
   projects: Project[]; 
+  setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
   activeProjectId: string | null; 
   savedAssets: SavedAsset[];
   setSavedAssets: React.Dispatch<React.SetStateAction<SavedAsset[]>>;
@@ -82,7 +83,7 @@ const parseChecklistFromStory = (storyContent: string | undefined): ParsedCheckl
 };
 
 
-export default function RoadmapDesigner({ navigateTo, navigateToWithPrefill, appName, projects, activeProjectId, savedAssets, setSavedAssets, setBatchStatus }: RoadmapDesignerProps) {
+export default function RoadmapDesigner({ navigateTo, navigateToWithPrefill, appName, projects, setProjects, activeProjectId, savedAssets, setSavedAssets, setBatchStatus }: RoadmapDesignerProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
@@ -94,6 +95,7 @@ export default function RoadmapDesigner({ navigateTo, navigateToWithPrefill, app
   const activeProject = projects.find(p => p.id === activeProjectId);
   const storyAsset = activeProject?.storyConceptId ? savedAssets.find(a => a.id === activeProject.storyConceptId && a.assetType === 'storyConcept') as StoryConceptAsset : null;
   const projectChecklist = parseChecklistFromStory(storyAsset?.content);
+  const projectStoryContext = storyAsset?.content;
 
 
   useEffect(() => {
@@ -124,6 +126,83 @@ export default function RoadmapDesigner({ navigateTo, navigateToWithPrefill, app
     navigateToWithPrefill(targetPage, prefillData, targetField);
   };
   
+  const generateAndSaveSprite = async (concept: string, storyContext?: string) => {
+    let prompt = `You are an expert 2D game asset designer. Generate a single, highly detailed text prompt for a game sprite. The sprite should be for: "${concept}". The perspective should be isometric.`;
+    if (storyContext) {
+        prompt += `\n\nUse the following story context to influence the sprite's theme and style: \n---STORY CONTEXT---\n${storyContext.substring(0, 1000)}\n-------------------`;
+    }
+    prompt += "\nThe output should be a single paragraph of descriptive text for an image generation model."
+
+    const response = await ai.models.generateContent({ model: TEXT_MODEL_NAME, contents: prompt });
+    const imagePrompt = response.text;
+    
+    const imgResponse = await ai.models.generateImages({ model: IMAGE_MODEL_NAME, prompt: imagePrompt, config: { numberOfImages: 1, outputMimeType: 'image/png' } });
+    const imageUrl = `data:image/png;base64,${imgResponse.generatedImages[0].image.imageBytes}`;
+
+    const newAsset: SpriteAsset = {
+        id: `sprite-batch-${Date.now()}-${Math.random()}`, timestamp: Date.now(), name: concept.split('-')[0].replace(/\*\*/g, '').trim(), assetType: 'sprite', imageUrl,
+        variantKey: 'default', spriteConcept: concept, prompt: imagePrompt, gameGenre: activeProject?.gameGenre || 'rpg', gamePerspective: 'isometric', projectId: activeProjectId || undefined
+    };
+    setSavedAssets(prev => [...prev, newAsset]);
+    if (activeProjectId) {
+        setProjects(prev => prev.map(p => 
+            p.id === activeProjectId 
+            ? { ...p, linkedAssetIds: { ...p.linkedAssetIds, sprites: [...p.linkedAssetIds.sprites, newAsset.id] }} 
+            : p
+        ));
+    }
+  };
+    
+  const generateAndSaveItem = async (concept: string, storyContext?: string) => {
+    let prompt = `You are an expert 2D game asset designer. Generate a single, highly detailed text prompt for a game item sprite. The item is: "${concept}". The perspective should be isometric.`;
+    if (storyContext) {
+        prompt += `\n\nUse the following story context to influence the item's theme and style: \n---STORY CONTEXT---\n${storyContext.substring(0, 1000)}\n-------------------`;
+    }
+    prompt += "\nThe output should be a single paragraph of descriptive text for an image generation model, suitable for an item icon."
+
+    const response = await ai.models.generateContent({ model: TEXT_MODEL_NAME, contents: prompt });
+    const imagePrompt = response.text;
+
+    const imgResponse = await ai.models.generateImages({ model: IMAGE_MODEL_NAME, prompt: imagePrompt, config: { numberOfImages: 1, outputMimeType: 'image/png' } });
+    const imageUrl = `data:image/png;base64,${imgResponse.generatedImages[0].image.imageBytes}`;
+
+    const newAsset: ItemAsset = {
+        id: `item-batch-${Date.now()}-${Math.random()}`, timestamp: Date.now(), name: concept.split(':')[0].replace(/\*\*/g, '').trim(), assetType: 'item', imageUrl, variantKey: 'default',
+        itemConcept: concept, prompt: imagePrompt, itemCategory: 'misc_loot', itemType: 'quest_item', gamePerspective: 'isometric', projectId: activeProjectId || undefined
+    };
+    setSavedAssets(prev => [...prev, newAsset]);
+    if (activeProjectId) {
+        setProjects(prev => prev.map(p => 
+            p.id === activeProjectId 
+            ? { ...p, linkedAssetIds: { ...p.linkedAssetIds, items: [...p.linkedAssetIds.items, newAsset.id] }} 
+            : p
+        ));
+    }
+  };
+
+  const generateAndSaveMap = async (concept: string, storyContext?: string) => {
+    let prompt = `You are an expert game level designer. Generate a detailed textual concept for a game map based on the idea: "${concept}".`;
+    if (storyContext) {
+        prompt += `\n\nUse the following story context to influence the map's theme, landmarks, and atmosphere: \n---STORY CONTEXT---\n${storyContext.substring(0, 1000)}\n-------------------`;
+    }
+    prompt += "\nOutput in Markdown."
+
+    const response = await ai.models.generateContent({ model: TEXT_MODEL_NAME, contents: prompt });
+    
+    const newAsset: MapAsset = {
+        id: `map-batch-${Date.now()}-${Math.random()}`, timestamp: Date.now(), name: concept.split(':')[0].replace(/\*\*/g, '').trim(), assetType: 'mapConcept',
+        mapTheme: concept, perspective: 'isometric', content: response.text, projectId: activeProjectId || undefined
+    };
+    setSavedAssets(prev => [...prev, newAsset]);
+    if (activeProjectId) {
+        setProjects(prev => prev.map(p => 
+            p.id === activeProjectId 
+            ? { ...p, linkedAssetIds: { ...p.linkedAssetIds, mapConcepts: [...p.linkedAssetIds.mapConcepts, newAsset.id] }} 
+            : p
+        ));
+    }
+  };
+
   const handleBatchGenerate = async (items: ChecklistItem[], categoryName: string) => {
     setBatchStatus({ isActive: true, message: `Starting batch generation for ${categoryName}`, total: items.length, current: 0 });
     let currentCount = 0;
@@ -136,62 +215,21 @@ export default function RoadmapDesigner({ navigateTo, navigateToWithPrefill, app
             switch (item.type) {
                 case 'character':
                 case 'enemy':
-                    await generateAndSaveSprite(item.fullLine);
+                    await generateAndSaveSprite(item.fullLine, projectStoryContext);
                     break;
                 case 'item':
-                    await generateAndSaveItem(item.fullLine);
+                    await generateAndSaveItem(item.fullLine, projectStoryContext);
                     break;
                 case 'location':
-                    await generateAndSaveMap(item.fullLine);
+                    await generateAndSaveMap(item.fullLine, projectStoryContext);
                     break;
             }
         } catch (e: any) {
             console.error(`Failed to generate item "${item.text}":`, e);
-            // Optionally show an error to the user
+            setErrorDetails({ title: `Generation Error`, message: `Failed to generate asset for "${item.text}". Please check the console for details and try again.`});
         }
     }
     setBatchStatus({ isActive: false, message: '', total: 0, current: 0 });
-  };
-
-  const generateAndSaveSprite = async (concept: string) => {
-    const prompt = `You are an expert 2D game asset designer. Generate a single, highly detailed text prompt for a game sprite. The sprite should be for: "${concept}". The perspective should be isometric. The output should be a single paragraph of descriptive text for an image generation model.`;
-    const response = await ai.models.generateContent({ model: TEXT_MODEL_NAME, contents: prompt });
-    const imagePrompt = response.text;
-    
-    const imgResponse = await ai.models.generateImages({ model: IMAGE_MODEL_NAME, prompt: imagePrompt, config: { numberOfImages: 1, outputMimeType: 'image/png' } });
-    const imageUrl = `data:image/png;base64,${imgResponse.generatedImages[0].image.imageBytes}`;
-
-    const newAsset: SpriteAsset = {
-        id: `sprite-batch-${Date.now()}`, timestamp: Date.now(), name: concept.split('-')[0].replace(/\*\*/g, '').trim(), assetType: 'sprite', imageUrl,
-        variantKey: 'default', spriteConcept: concept, prompt: imagePrompt, gameGenre: activeProject?.gameGenre || 'rpg', gamePerspective: 'isometric', projectId: activeProjectId || undefined
-    };
-    setSavedAssets(prev => [...prev, newAsset]);
-  };
-    
-  const generateAndSaveItem = async (concept: string) => {
-    const prompt = `You are an expert 2D game asset designer. Generate a single, highly detailed text prompt for a game item sprite. The item is: "${concept}". The perspective should be isometric. The output should be a single paragraph of descriptive text for an image generation model, suitable for an item icon.`;
-    const response = await ai.models.generateContent({ model: TEXT_MODEL_NAME, contents: prompt });
-    const imagePrompt = response.text;
-
-    const imgResponse = await ai.models.generateImages({ model: IMAGE_MODEL_NAME, prompt: imagePrompt, config: { numberOfImages: 1, outputMimeType: 'image/png' } });
-    const imageUrl = `data:image/png;base64,${imgResponse.generatedImages[0].image.imageBytes}`;
-
-    const newAsset: ItemAsset = {
-        id: `item-batch-${Date.now()}`, timestamp: Date.now(), name: concept.split(':')[0].replace(/\*\*/g, '').trim(), assetType: 'item', imageUrl, variantKey: 'default',
-        itemConcept: concept, prompt: imagePrompt, itemCategory: 'misc_loot', itemType: 'quest_item', gamePerspective: 'isometric', projectId: activeProjectId || undefined
-    };
-    setSavedAssets(prev => [...prev, newAsset]);
-  };
-
-  const generateAndSaveMap = async (concept: string) => {
-    const prompt = `You are an expert game level designer. Generate a detailed textual concept for a game map based on the idea: "${concept}". Output in Markdown.`;
-    const response = await ai.models.generateContent({ model: TEXT_MODEL_NAME, contents: prompt });
-    
-    const newAsset: MapConceptAsset = {
-        id: `map-batch-${Date.now()}`, timestamp: Date.now(), name: concept.split(':')[0].replace(/\*\*/g, '').trim(), assetType: 'mapConcept',
-        mapTheme: concept, perspective: 'isometric', content: response.text, projectId: activeProjectId || undefined
-    };
-    setSavedAssets(prev => [...prev, newAsset]);
   };
 
 
@@ -250,4 +288,14 @@ export default function RoadmapDesigner({ navigateTo, navigateToWithPrefill, app
         </section>
       </main>
 
-      <footer className="w-full text-center p-6 border-t border-[var
+      <footer className="w-full text-center p-6 border-t border-[var(--border-color)] mt-12">
+        <p className="text-sm text-[var(--text-secondary)]">&copy; {new Date().getFullYear()} {appName}. Game Design Roadmap.</p>
+      </footer>
+      <ErrorModal isOpen={!!errorDetails} onClose={() => setErrorDetails(null)} title={errorDetails?.title} message={errorDetails?.message} />
+      <LoginModal isOpen={loginModalOpen} onClose={() => setLoginModalOpen(false)} onLogin={handleLogin} appName={appName} />
+      <SignupModal isOpen={signupModalOpen} onClose={() => setSignupModalOpen(false)} onSignup={handleSignup} appName={appName} />
+      <LegalModal isOpen={legalModalOpen} onClose={() => setLegalModalOpen(false)} appName={appName} />
+      <TosModal isOpen={tosModalOpen} onClose={() => setTosModalOpen(false)} appName={appName} />
+    </div>
+  );
+}
